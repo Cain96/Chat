@@ -8,8 +8,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <ctype.h>
 
 #define STRLEN 128
+#define PORTNUM 10140
 
 int main(int argc, char *argv[]) {
     char text[STRLEN];
@@ -24,13 +26,29 @@ int main(int argc, char *argv[]) {
     int nbytes;
     fd_set rfds;
     struct timeval tv;
+    char *user;
 
-
-    /* 引数が1つであることの確認 */
-    if (argc != 2) {
+    /* 引数が2つであることの確認 */
+    if (argc != 3) {
         perror("Illegal arguments");
         exit(1);
     }
+
+    /* ユーザー名のチェック */
+    char *p = argv[2];
+    while (*p != '\0') {
+      if(isalnum(*p) == 0){
+        /* 英数字チェック*/
+        if((*p != '-') && (*p != '_')){
+          /* -(ハイフン),_(アンダーバー) チェック */
+          fprintf(stderr, "Illegal username : %s\n", argv[2]);
+          exit(1);
+        }
+      }
+      p++;
+    }
+    strcpy(user, argv[2]);
+    strcat(user, "\n");
 
     /* ソケットの生成 */
     if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
@@ -40,25 +58,45 @@ int main(int argc, char *argv[]) {
     /* ソケットアドレス再利用の指定 */
     reuse = 1;
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-		perror("setsockopt");
-		exit(1);
-	    }
+    		perror("setsockopt");
+    		exit(1);
+    }
 
-	    memset((char *) &svr, 0, sizeof(svr));
-	    /* client_addr構造体にサーバの設定 */
-	    if((host = gethostbyname(argv[1])) == NULL){
-		perror("setIP");
-		exit(1);
-	    }
-	    bcopy(host->h_addr, &svr.sin_addr, host->h_length);
+    memset((char *) &svr, 0, sizeof(svr));
+    /* client_addr構造体にサーバの設定 */
+    if((host = gethostbyname(argv[1])) == NULL){
+  		  perror("setIP");
+		    exit(1);
+    }
+	  bcopy(host->h_addr, &svr.sin_addr, host->h_length);
     svr.sin_family = AF_INET;
-    svr.sin_port = htons(10130);
+    svr.sin_port = htons(PORTNUM);
 
     /* connectでhostと接続 */
     if (connect(sock, (struct sockaddr *) &svr, sizeof(svr)) > 0) {
         perror("connect");
         close(sock);
         exit(1);
+    }
+
+    /* 参加 */
+    if(read(sock, rbuf, 17) != 0){
+      if(strncmp(rbuf, "REQUEST ACCEPTED\n", 17) != 0){
+          perror("Not Accepted");
+          close(sock);
+          exit(1);
+      }
+    }
+
+    /* ユーザ名登録 */
+    printf("%s", user);
+    write(sock, user, sizeof(user));
+    if(read(sock, rbuf, 20) != 0){
+      if(strncmp(rbuf, "USERNAME REGISTERED\n", 20) != 0){
+          perror("Not Registered");
+          close(sock);
+          exit(1);
+      }
     }
 
     do{
@@ -76,8 +114,8 @@ int main(int argc, char *argv[]) {
                 /* 標準入力から読み込みクライアント
 に送信 */
                 memset(buf, '\0', 1024);
-                if(read(0,buf, 1024)!=0){
-                    write(sock, buf, sizeof(buf));
+                if((nbytes = read(0,buf, 1024))!=0){
+                    write(sock, buf, nbytes);
                 }else{
                     printf("break");
                     break;
