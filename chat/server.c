@@ -11,7 +11,8 @@
 #define PORTNUM 10140
 
 int main(int argc, char **argv) {
-    int sock, csock[5];
+    int sock, csock[MAXCLIENTS +1];
+    char *user[MAXCLIENTS];
     struct sockaddr_in svr;
     struct sockaddr_in clt;
     struct hostent *cp;
@@ -35,7 +36,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
 /* csockの初期化 */
-    for(int i=0; i<5; i++){
+    for(int i=0; i<=MAXCLIENTS; i++){
       csokc[i] = -1;
     }
 
@@ -58,49 +59,70 @@ int main(int argc, char **argv) {
     }
     while (1) {
 /* クライアントの受付 */
-        clen = sizeof(clt);
-        if ((csock[0] = accept(sock, (struct sockaddr *) &clt, &clen)) < 0) {
-            perror("accept");
-            exit(2);
+      clen = sizeof(clt);
+      if ((csock[k] = accept(sock, (struct sockaddr *) &clt, &clen)) < 0) {
+          perror("accept");
+          exit(2);
+      } else {
+        k++;
+        if(k<=5){
+          int strlength = strlen("REQUEST ACCEPTED\n");
+          write(csock[k-1], "REQUEST ACCEPTED\n", sizeof(char)*strlength);
+          /* ユーザー名登録 */
+          if ((nbytes = read(csock[k-1], rbuf, sizeof(rbuf))) < 0) {
+             perror("read");
+          } else {
+            for(int i=0; i<k-1; k++){
+              if(strcmp(user[i], rbuf) == 0){
+                strlength = strlen("USERNAME REGISTERED\n");
+                write(csock[k-1], "USERNAME REGISTERED\n", sizeof(char)*strlength);
+                close(csock[k-1]);
+                csock[k-1] = -1;
+                k--;
+                break;
+              }
+            }
+          }
+        } else {
+          int strlength = strlen("REQUEST REJECTED\n");
+          write(csock[k-1], "REQUEST REJECTED\n", sizeof(char)*strlength);
+          close(csock[k-1]);
+          csock[k-1] = -1;
+          k--;
         }
-/* クライアントのホスト情報の取得 */
-        cp = gethostbyaddr((char *) &clt.sin_addr, sizeof(struct in_addr),
-                           AF_INET);
-        printf("[%s]\n", cp->h_name);
-      	while(1){
-      		/* 入力を監視するファイル記述子の集合を変数 rfds にセットする */
-      		FD_ZERO(&rfds); /* rfds を空集合に初期化 */
-      		FD_SET(0,&rfds); /* 標準入力 */
-      		FD_SET(csock[0],&rfds); /* クライアントを受け付けたソケット */
-      		/* 監視する待ち時間を 1 秒に設定 */
-      		tv.tv_sec = 1;
-          tv.tv_usec = 0;
-      		/* 標準入力とソケットからの受信を同時に監視する */
-      		if(select(6, &rfds, NULL, NULL, &tv)>0) {
-      			if(FD_ISSET(0,&rfds)) {
-      				/* 標準入力から入力があったなら */
-      				/* 標準入力から読み込みクライアントに送信 */
-      				memset(buf, '\0', 1024);
-      				if(read(0,buf, 1024)!=0){
-      					write(csock, buf, sizeof(buf));
-      				}else{
-      					break;
-      				}
+      }
+
+      /* クライアントのホスト情報の取得 */
+      cp = gethostbyaddr((char *) &clt.sin_addr, sizeof(struct in_addr),
+                         AF_INET);
+      printf("[%s]\n", cp->h_name);
+  		/* 入力を監視するファイル記述子の集合を変数 rfds にセットする */
+  		FD_ZERO(&rfds); /* rfds を空集合に初期化 */
+      for(int i=0; i<k; i++){
+  		  FD_SET(csock[i],&rfds); /* クライアントを受け付けたソケット */
+      }
+  		/* 監視する待ち時間を 1 秒に設定 */
+  		tv.tv_sec = 1;
+      tv.tv_usec = 0;
+  		/* 標準入力とソケットからの受信を同時に監視する */
+  		if(select(6, &rfds, NULL, NULL, &tv)>0) {
+        for(int i=0; i<k; i++){
+    			if(FD_ISSET(csock[i],&rfds)) {
+    				/* ソケットから受信したなら */
+    				/* ソケットから読み込み端末に出力 */
+    				if ((nbytes = read(csock, rbuf, sizeof(rbuf))) < 0) {
+    			     perror("read");
+    				} else if(nbytes == 0){
+    					close(csock[i]);
+              csock[i]=csok[k-1];
+              k--;
+      			} else {
+              for(int j=0; j<k; j++){
+    			       write(csock[j], rbuf, nbytes);
+              }
       			}
-      			if(FD_ISSET(csock,&rfds)) {
-      				/* ソケットから受信したなら */
-      				/* ソケットから読み込み端末に出力 */
-      				if ((nbytes = read(csock, rbuf, sizeof(rbuf))) < 0) {
-                      			perror("read");
-      				} else if(nbytes == 0){
-      					break;
-        			} else {
-          			write(1, rbuf, nbytes);
-        			}
-      			}
-      		}
-      	}  /* 繰り返す */
-        close(csock);
-        printf("closed\n");
+    			}
+        }
+  		}
     } /* 次の接続要求を繰り返し受け付ける */
 }
