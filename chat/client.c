@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* ユーザ名登録 */
-    printf("%s", user);
+    printf("Join as %s", user);
     write(sock, user, sizeof(user));
     if(read(sock, rbuf, 20) != 0){
       if(strncmp(rbuf, "USERNAME REGISTERED\n", 20) != 0){

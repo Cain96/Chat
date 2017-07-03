@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
     struct sockaddr_in clt;
     struct hostent *cp;
     int clen;
-    char buf[1024];
+    char *buf;
     char rbuf[1024];
     int nbytes;
     int reuse;
@@ -60,7 +60,6 @@ int main(int argc, char **argv) {
     }
     state = 1;
     while (1) {
-      printf("%d\n", state);
       switch (state) {
         case 1:
         /* 入力待ち, 入力処理 */
@@ -119,8 +118,14 @@ int main(int argc, char **argv) {
            perror("read");
         } else {
           int flag = 0;
+          char *p = rbuf;
+          int buf_count = 0;
+          while (*p != '\n') {
+            buf_count++;
+            p++;
+          }
           for(i=0; i<k-1; i++){
-            if(strcmp(user[i], rbuf) == 0){
+            if(strncmp(user[i], rbuf, buf_count) == 0){
               strlength = strlen("USERNAME REJECTED\n");
               write(csock[k-1], "USERNAME REJECTED\n", sizeof(char)*strlength);
               write(1, "USERNAME REJECTED\n", sizeof(char)*strlength);
@@ -135,8 +140,8 @@ int main(int argc, char **argv) {
             strlength = strlen("USERNAME REGISTERED\n");
             write(csock[k-1], "USERNAME REGISTERED\n", sizeof(char)*strlength);
             write(1, "USERNAME REGISTERED\n", sizeof(char)*strlength);
-            printf("Join UserName : %s",rbuf);
-            strcpy(user[k-1], rbuf);
+            strncpy(user[k-1], rbuf, buf_count);
+            printf("Join UserName : %s\n",user[k-1]);
           }
           state = 1;
         }
@@ -151,7 +156,11 @@ int main(int argc, char **argv) {
           break;
         } else {
           for(int j=0; j<k; j++){
-             write(csock[j], rbuf, nbytes);
+            if(j != sock_num){
+              write(csock[j], user[sock_num], sizeof(user[sock_num]));
+              write(csock[j], " > ", sizeof(" > "));
+              write(csock[j], rbuf, nbytes);
+            }
           }
         }
         state = 1;
@@ -159,9 +168,10 @@ int main(int argc, char **argv) {
 
         case 5:
         /* 離脱処理 */
-        printf("Escapsed User:%s", user[sock_num]);
+        printf("Escapsed User:%s\n", user[sock_num]);
         close(csock[sock_num]);
         strcpy(user[sock_num], user[k-1]);
+        memset(user[k-1], 0, 1024);
         csock[sock_num] = csock[k-1];
         csock[k-1] = -1;
         k--;
