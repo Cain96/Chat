@@ -15,16 +15,13 @@ int main(int argc, char **argv) {
     char user[MAXCLIENTS][1024];
     struct sockaddr_in svr;
     struct sockaddr_in clt;
-    struct hostent *cp;
     int clen;
-    char *buf;
     char rbuf[1024];
     int nbytes;
     int reuse;
     fd_set rfds;
     struct timeval tv;
-    int k = 0, i, user_count;
-    int state, sock_num, strlength;
+    int k = 0, i, user_count, state, sock_num, strlength;
 /* ソケットの生成 */
     if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         perror("socket");

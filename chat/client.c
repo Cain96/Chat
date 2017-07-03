@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    do{
+    while (1) {
                 /* 入力を監視するファイル記述子の集合を変数 rfds に
 セットする */
   	    FD_ZERO(&rfds); /* rfds を空集合に初期化 */
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
-    }while(1); /* 繰り返す */
+    }
     close(sock);
     printf("closed\n");
 }
