@@ -22,6 +22,12 @@ int main(int argc, char **argv) {
     fd_set rfds;
     struct timeval tv;
     int k = 0, i, user_count, state, sock_num, strlength;
+
+    if (SIG_ERR == signal(SIGINT, sigcatch)) {
+      printf("failed to set signal handler.\n");
+      exit(1);
+    }
+
 /* ソケットの生成 */
     if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         perror("socket");
@@ -139,6 +145,11 @@ int main(int argc, char **argv) {
             write(1, "USERNAME REGISTERED\n", sizeof(char)*strlength);
             strncpy(user[k-1], rbuf, buf_count);
             printf("Join UserName : %s\n",user[k-1]);
+            for(int j=0; j<k-1; j++){
+              write(csock[j], "Join ", sizeof("Join "));
+              write(csock[j], user[k-1], sizeof(user[k-1]));
+              write(csock[j], "\n", sizeof("\n"));
+            }
           }
           state = 1;
         }
@@ -152,11 +163,19 @@ int main(int argc, char **argv) {
           state = 5;
           break;
         } else {
-          for(int j=0; j<k; j++){
-            if(j != sock_num){
-              write(csock[j], user[sock_num], sizeof(user[sock_num]));
-              write(csock[j], " > ", sizeof(" > "));
-              write(csock[j], rbuf, nbytes);
+          if(strncmp(rbuf, "/list\n", 6) == 0){
+            write(csock[sock_num], "User List\n", sizeof("User List\n"));
+            for(int j=0; j<k; j++){
+              write(csock[sock_num], user[j], sizeof(user[j]));
+              write(csock[sock_num], "\n", sizeof("\n"));
+            }
+          } else {
+            for(int j=0; j<k; j++){
+              if(j != sock_num){
+                write(csock[j], user[sock_num], sizeof(user[sock_num]));
+                write(csock[j], " > ", sizeof(" > "));
+                write(csock[j], rbuf, nbytes);
+              }
             }
           }
         }
@@ -166,6 +185,13 @@ int main(int argc, char **argv) {
         case 5:
         /* 離脱処理 */
         printf("Escapsed User:%s\n", user[sock_num]);
+        for(int j=0; j<k; j++){
+          if(j != sock_num){
+            write(csock[j], "Escapsed ", sizeof("Escapsed "));
+            write(csock[j], user[sock_num], sizeof(user[sock_num]));
+            write(csock[j], "\n", sizeof("\n"));
+          }
+        }
         close(csock[sock_num]);
         strcpy(user[sock_num], user[k-1]);
         memset(user[k-1], 0, 1024);
