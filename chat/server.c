@@ -23,11 +23,6 @@ int main(int argc, char **argv) {
     struct timeval tv;
     int k = 0, i, user_count, state, sock_num, strlength;
 
-    if (SIG_ERR == signal(SIGINT, sigcatch)) {
-      printf("failed to set signal handler.\n");
-      exit(1);
-    }
-
 /* ソケットの生成 */
     if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         perror("socket");
@@ -171,11 +166,9 @@ int main(int argc, char **argv) {
             }
           } else {
             for(int j=0; j<k; j++){
-              if(j != sock_num){
                 write(csock[j], user[sock_num], sizeof(user[sock_num]));
-                write(csock[j], " > ", sizeof(" > "));
+                write(csock[j], " > ", sｓizeof(" > "));
                 write(csock[j], rbuf, nbytes);
-              }
             }
           }
         }
